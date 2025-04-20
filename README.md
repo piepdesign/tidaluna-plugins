@@ -66,6 +66,12 @@ If you want to use the included GitHub Action in (`.github`) to automatically cr
 
 This allows the GitHub Action to create releases on your behalf.
 
+### 8. Install your plugins from GitHub
+
+After your action has build the plugins, you can install from the releases page.
+For example for **@luna/example**  
+https://github.com/.../.../releases/download/latest/luna.example
+
 ---
 
 For more details, see the [Tidal Luna documentation](https://github.com/Inrixia/TidaLuna).
