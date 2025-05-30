@@ -44,9 +44,8 @@ pnpm install
 - Edit files in the `plugins/Example` directory to build your plugin.
 - Use `pnpm run watch` to build and serve with hot reload.
 
-> While developing, you can install your local plugin into Tidal Luna using a local URL.  
-> For example, if your plugin is `@luna/example` and you are running the dev server, use:  
-> `http://127.0.0.1:3000/luna.example` as the install URL in Tidal Luna.
+> While developing, you can install and test your plugin via the _DEV_ store that should appear under **Plugin Store** in **Luna Settings**
+> ![image](https://github.com/user-attachments/assets/c159bf00-6feb-41c8-8884-3d9e63070c19)
 
 ### 6. Update the README
 
@@ -71,6 +70,13 @@ This allows the GitHub Action to create releases on your behalf.
 After your action has build the plugins, you can install from the releases page.
 For example for **@luna/example**  
 https://github.com/.../.../releases/download/latest/luna.example
+
+Or install the store with
+https://github.com/.../.../releases/download/latest/store.json
+
+### 9. PR [TidaLuna](https://github.com/Inrixia/TidaLuna) to add your store
+
+You can open a PR to add your store url to the default stores in client if youd like <3
 
 ---
 

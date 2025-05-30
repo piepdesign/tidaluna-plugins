@@ -1,11 +1,17 @@
 import React from "react";
 
-import { InfoMessage } from "@luna/lib";
-import { LunaSwitchSetting } from "@luna/ui";
+import { LunaSettings, LunaSwitchSetting } from "@luna/ui";
+import { trace } from ".";
 
 export const Settings = () => {
+	const [checked, setChecked] = React.useState(false);
 	const onChange = React.useCallback((_: React.ChangeEvent<HTMLInputElement>, checked?: boolean) => {
-		InfoMessage(`Example switch is now ${checked ? "on" : "off"}`);
+		trace.msg.log(`Example switch is now ${checked ? "on" : "off"}`);
+		setChecked(checked ?? false);
 	}, []);
-	return <LunaSwitchSetting title="Example Switch" desc="This is an example switch" onChange={onChange} />;
+	return (
+		<LunaSettings>
+			<LunaSwitchSetting title="Example Switch" checked={checked} desc="This is an example switch" onChange={onChange} />
+		</LunaSettings>
+	);
 };

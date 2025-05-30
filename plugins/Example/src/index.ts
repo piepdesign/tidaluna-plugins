@@ -1,7 +1,11 @@
-import { InfoMessage, redux, Signal, type LunaUnload } from "@luna/lib";
-import { intercept } from "plugins/lib/src/redux";
+import { LunaUnload, Tracer } from "@luna/core";
+import { MediaItem, redux } from "@luna/lib";
 
-InfoMessage(`Hello ${redux.store.getState().user.meta.profileName} from the Example plugin!`);
+export const { trace, errSignal } = Tracer("[ExamplePlugin]");
+// You typically will never manually set errSignal. Its handled when trace.err or similar is called
+errSignal!._ = "Example plugin error signal";
+
+trace.msg.log(`Hello ${redux.store.getState().user.meta.profileName} from the Example plugin!`);
 
 // Example plugin settings
 export { Settings } from "./Settings";
@@ -11,9 +15,6 @@ export { Settings } from "./Settings";
 export const unloads = new Set<LunaUnload>();
 
 // Log to console whenever changing page
-intercept("page/SET_PAGE_ID", unloads, console.log);
+redux.intercept("page/SET_PAGE_ID", unloads, console.log);
 
-// Error signal allowing us to show error messages in the UI
-export const errSignal = new Signal<string | undefined>(undefined);
-
-errSignal._ = "Example plugin error signal";
+MediaItem.onMediaTransition(unloads, (mediaItem) => alert(`Media item transitioned: ${mediaItem.title}`));
