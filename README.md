@@ -44,7 +44,7 @@ pnpm install
 - Edit files in the `plugins/Example` directory to build your plugin.
 - Use `pnpm run watch` to build and serve with hot reload.
 
-> While developing, you can install and test your plugin via the _DEV_ store that should appear under **Plugin Store** in **Luna Settings**
+> While developing, you can install and test your plugin via the _DEV_ store that should appear under **Plugin Store** in **Luna Settings**  
 > ![image](https://github.com/user-attachments/assets/c159bf00-6feb-41c8-8884-3d9e63070c19)
 
 ### 6. Update the README
