@@ -1,0 +1,89 @@
+/* Own column (cloned from the duration cell, keeping its grid classes) plus the
+   matching header column. A consistent min-width reserves the same space in every
+   row, so nothing is overlapped and all columns stay aligned; the flexible columns
+   (title/artist/album) shrink to fit automatically. */
+[data-test="pl-labels-col"] {
+	min-width: 150px !important;
+	display: flex !important;
+	align-items: center;
+	justify-content: flex-end;
+	padding-right: 12px;
+	overflow: hidden;
+}
+
+.pl-labels-header {
+	min-width: 150px !important;
+}
+
+.pl-labels {
+	display: flex;
+	flex-direction: row-reverse;
+	align-items: center;
+	gap: 6px;
+	overflow: hidden;
+	max-width: 100%;
+}
+
+.pl-label {
+	width: 24px;
+	height: 24px;
+	object-fit: cover;
+	border-radius: 3px;
+	cursor: pointer;
+	transition: transform 0.1s ease;
+	flex: 0 0 auto;
+}
+
+.pl-label:hover {
+	transform: scale(1.12);
+}
+
+/* Overflow indicator when there are more playlists than visible labels. */
+.pl-labels.pl-labels-overflow::after {
+	content: "⋯";
+	color: var(--text-base, currentColor);
+	margin-left: 2px;
+	pointer-events: none;
+}
+
+/* Brief flash of the target track after a label click. */
+.pl-highlight {
+	animation: pl-flash 4s ease;
+	border-radius: 4px;
+}
+
+@keyframes pl-flash {
+	0% { background-color: rgba(50, 244, 255, 0.35); }
+	70% { background-color: rgba(50, 244, 255, 0.18); }
+	100% { background-color: transparent; }
+}
+
+/* Right-click menu. */
+.pl-menu {
+	position: fixed;
+	z-index: 99999;
+	min-width: 200px;
+	padding: 4px;
+	background: #1a1a1a;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 8px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+	color: #fff;
+	font-size: 14px;
+	user-select: none;
+}
+
+.pl-menu-item {
+	padding: 8px 12px;
+	border-radius: 5px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.pl-menu-item:hover {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.pl-menu-danger {
+	color: #ff6b6b;
+}
