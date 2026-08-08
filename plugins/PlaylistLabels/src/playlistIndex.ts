@@ -24,16 +24,27 @@ type TApiPlaylist = {
 	image?: string;
 	squareImage?: string;
 	creator?: { id?: number };
+	/** ISO timestamp, bumps on metadata edits (incl. cover). Used to cache-bust the image URL. */
+	lastUpdated?: string;
 };
 
 /**
  * Cover URL from a TIDAL image field. Handles both a ready URL and an image
  * uuid. Size 320 is a valid playlist rendition (80 returns 403 for playlists).
+ *
+ * TIDAL often keeps the same image uuid when a playlist cover is replaced (the
+ * underlying image is swapped, not the id). Without a cache-buster, TIDAL's own
+ * Chromium image cache then keeps showing the old picture indefinitely for that
+ * URL, even after our index rebuilds with fresh data. Appending `lastUpdated` as
+ * a query param forces a refetch exactly when the playlist's metadata actually
+ * changed, while leaving the URL (and thus the cache) untouched otherwise.
  */
-const coverUrl = (image?: string, res = 320): string => {
+const coverUrl = (image?: string, lastUpdated?: string, res = 320): string => {
 	if (!image) return "";
-	if (image.startsWith("http")) return image;
-	return `https://resources.tidal.com/images/${image.split("-").join("/")}/${res}x${res}.jpg`;
+	const base = image.startsWith("http") ? image : `https://resources.tidal.com/images/${image.split("-").join("/")}/${res}x${res}.jpg`;
+	if (!lastUpdated) return base;
+	const v = encodeURIComponent(lastUpdated);
+	return base.includes("?") ? `${base}&v=${v}` : `${base}?v=${v}`;
 };
 
 const addLabel = (trackId: string, label: PlaylistLabel): void => {
@@ -83,7 +94,7 @@ export async function buildIndex(): Promise<void> {
 	let refetched = 0;
 
 	for (const pl of playlists) {
-		const cover = coverUrl(pl.squareImage ?? pl.image);
+		const cover = coverUrl(pl.squareImage ?? pl.image, pl.lastUpdated);
 		const isOwn = String(pl.creator?.id ?? "") === String(userId);
 		const cached = cache.playlists[pl.uuid];
 

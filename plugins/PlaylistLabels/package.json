@@ -1,9 +1,11 @@
 {
 	"name": "@piepdesign/playlist-labels",
+	"version": "0.2.1",
 	"description": "Shows small covers of your own playlists on every track row, indicating which playlists a track is in. Click a cover to jump to that playlist.",
 	"author": {
-		"name": "fynn2002",
-		"url": "https://github.com/fynn2002"
+		"name": "piep.design",
+		"email": "info@piep.design",
+		"url": "https://piep.design"
 	},
 	"main": "./src/index.ts",
 	"type": "module",
