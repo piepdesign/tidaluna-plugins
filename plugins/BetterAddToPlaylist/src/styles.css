@@ -1,0 +1,53 @@
+/* Folder headers injected into the "Add to playlist" modal list. */
+
+.batp-folder-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 4px 4px;
+	cursor: pointer;
+	user-select: none;
+	font-weight: 600;
+	font-size: 0.75rem;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--wave-color-solid-text-secondary, #9b9b9b);
+}
+
+.batp-folder-header:hover {
+	color: var(--wave-color-solid-text-primary, #fff);
+}
+
+.batp-caret {
+	width: 0;
+	height: 0;
+	border-left: 5px solid currentColor;
+	border-top: 4px solid transparent;
+	border-bottom: 4px solid transparent;
+	transition: transform 0.12s ease;
+	transform: rotate(90deg);
+	flex: 0 0 auto;
+}
+
+.batp-folder-header.batp-collapsed .batp-caret {
+	transform: rotate(0deg);
+}
+
+.batp-name {
+	flex: 1 1 auto;
+}
+
+.batp-count {
+	opacity: 0.6;
+	font-weight: 400;
+}
+
+/* Static folder label in the "+" popover: no caret, not clickable. */
+.batp-folder-header.batp-static {
+	cursor: default;
+	padding: 8px 16px 2px;
+}
+
+.batp-folder-header.batp-static:hover {
+	color: var(--wave-color-solid-text-secondary, #9b9b9b);
+}
