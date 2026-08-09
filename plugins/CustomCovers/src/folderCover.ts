@@ -62,13 +62,17 @@ function removeOverlay(id: string): void {
 
 // --- DOM overlay ---
 //
-// Verified against the live grid DOM (2026-08-08):
-//   folder:   <a data-test="folder-cover" href="/folder/<uuid>">
-//   playlist: <a data-test="cell-cover"   href="/playlist/<uuid>">
-// both inside <div class="_cellCoverContainer_…"> which holds the artwork.
+// Covers appear in two places, both linked by href:
+//   grid tiles:  <a href="/folder|playlist/<uuid>"> … <div class="_cellCoverContainer_…"> (artwork)
+//   sidebar/list rows: <a href="/folder|playlist/<uuid>"> with a small square artwork
+//     slot (folder svg icon / playlist img) followed by the name.
+// We match every such anchor by href (grid + sidebar) so the same overlay — same
+// image, same live repaint — lands in both. The host we paint into is the grid's
+// cover container if present, otherwise the small artwork wrapper of the row.
 
-export const FOLDER_LINK = 'a[data-test="folder-cover"]';
-const PLAYLIST_LINK = 'a[data-test="cell-cover"]';
+// Matches both grid and sidebar anchors (grid also carries data-test attrs).
+export const FOLDER_LINK = 'a[href^="/folder/"]';
+export const PLAYLIST_LINK = 'a[href^="/playlist/"]';
 
 const idFrom = (href: string, kind: string): string | null => {
 	const m = new RegExp(`/${kind}/([^/?#]+)`).exec(href);
@@ -77,9 +81,25 @@ const idFrom = (href: string, kind: string): string | null => {
 export const folderIdFromHref = (href: string): string | null => idFrom(href, "folder");
 export const playlistIdFromHref = (href: string): string | null => idFrom(href, "playlist");
 
+/**
+ * The element to paint the cover into for a given link: the grid tile's cover
+ * container if this is a grid tile, otherwise the small artwork wrapper of a
+ * sidebar/list row (the box around the folder icon / playlist thumbnail). Returns
+ * null if no artwork slot can be found (so we never cover a row's text).
+ */
+function coverHost(link: HTMLAnchorElement): HTMLElement | null {
+	const grid = link.querySelector<HTMLElement>('[class*="cellCoverContainer"]');
+	if (grid) return grid;
+	const art = link.querySelector<HTMLElement>("img, svg, picture");
+	if (!art) return null;
+	const wrap = art.parentElement;
+	return wrap && wrap !== link ? wrap : art;
+}
+
 /** Paints (or updates/removes) one overlay inside a tile's cover container. */
 function paint(link: HTMLAnchorElement, id: string, dataUrl?: string): void {
-	const host = link.querySelector<HTMLElement>('[class*="cellCoverContainer"]') ?? link;
+	const host = coverHost(link);
+	if (!host) return;
 	const existing = host.querySelector<HTMLElement>(`.cc-cover[data-cc-id="${CSS.escape(id)}"]`);
 
 	if (!dataUrl) {
@@ -102,7 +122,7 @@ function paint(link: HTMLAnchorElement, id: string, dataUrl?: string): void {
 	host.appendChild(overlay);
 }
 
-/** Paints stored/optimistic covers onto all currently rendered tiles. Idempotent. */
+/** Paints stored/optimistic covers onto every rendered tile AND sidebar row. Idempotent. */
 export function applyOverlays(): void {
 	const folders = load();
 	for (const link of document.querySelectorAll<HTMLAnchorElement>(FOLDER_LINK)) {
