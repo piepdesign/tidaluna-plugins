@@ -29,4 +29,3 @@ export const onRedraw = (cb: () => void): void => {
 export const requestRedraw = (): void => {
 	redrawHandlers.forEach((cb) => cb());
 };
-

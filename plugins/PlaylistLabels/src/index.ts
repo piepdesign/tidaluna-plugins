@@ -5,7 +5,7 @@ import { onExcludedChange } from "./excluded";
 import { buildFolderIndex, onFoldersChange } from "./folders";
 import { onRebuild, onRedraw, pendingSelect, trace, unloads } from "./index.safe";
 import { injectLabels } from "./injectLabels";
-import { addPlaylistMembership, buildIndex, trackIdToPlaylists } from "./playlistIndex";
+import { addPlaylistMembership, buildIndex, setPlaylistCover, trackIdToPlaylists } from "./playlistIndex";
 import { onSettingsChange, settings, Settings } from "./Settings";
 
 export { Settings, unloads };
@@ -52,12 +52,6 @@ const redrawAll = (): void => {
 
 // --- Highlight / scroll-to-track after a label click ---
 
-const highlightRow = (row: Element): void => {
-	row.scrollIntoView({ block: "center", behavior: "smooth" });
-	row.classList.add("pl-highlight");
-	window.setTimeout(() => row.classList.remove("pl-highlight"), 4000);
-};
-
 const findScrollParent = (el: Element | null): HTMLElement | null => {
 	let node = el?.parentElement ?? null;
 	while (node) {
@@ -66,6 +60,28 @@ const findScrollParent = (el: Element | null): HTMLElement | null => {
 		node = node.parentElement;
 	}
 	return (document.scrollingElement as HTMLElement) ?? null;
+};
+
+/**
+ * Centers a row inside ONLY its own scroll container, clamped to the valid range.
+ * We must not use element.scrollIntoView(): it scrolls every scrollable ancestor
+ * (up to the document), and that outer scroll then sticks — the header/nav get
+ * pushed off and an empty gap appears at the bottom until the page is re-rendered.
+ */
+const centerRowInScroller = (row: Element): void => {
+	const scroller = findScrollParent(row);
+	if (!scroller) return;
+	const rowRect = row.getBoundingClientRect();
+	const scRect = scroller.getBoundingClientRect();
+	const delta = rowRect.top - scRect.top - (scroller.clientHeight - rowRect.height) / 2;
+	const max = scroller.scrollHeight - scroller.clientHeight;
+	scroller.scrollTop = Math.max(0, Math.min(max, scroller.scrollTop + delta));
+};
+
+const highlightRow = (row: Element): void => {
+	centerRowInScroller(row);
+	row.classList.add("pl-highlight");
+	window.setTimeout(() => row.classList.remove("pl-highlight"), 4000);
 };
 
 /** Scrolls a (possibly virtualized, not-yet-rendered) track into view, then highlights it. */
@@ -168,3 +184,13 @@ redux.intercept("content/ADD_MEDIA_ITEMS_TO_PLAYLIST_SUCCESS", unloads, onAddedT
 onSettingsChange(redrawAll);
 onExcludedChange(redrawAll);
 onFoldersChange(redrawAll);
+
+// Live cover sync: the CustomCovers plugin fires this when a playlist cover is
+// changed/removed, so labels refresh without a reload.
+const onCoverChanged = (e: Event): void => {
+	const detail = (e as CustomEvent<{ playlistId?: string; coverUrl?: string }>).detail;
+	if (!detail?.playlistId) return;
+	void setPlaylistCover(detail.playlistId, detail.coverUrl).then(redrawAll);
+};
+window.addEventListener("customcovers:cover-changed", onCoverChanged);
+unloads.add(() => window.removeEventListener("customcovers:cover-changed", onCoverChanged));

@@ -123,6 +123,44 @@ export function invalidatePlaylist(uuid: string): void {
 	saveCache(cache);
 }
 
+/**
+ * Updates the cover of one playlist across the in-memory index and the cache,
+ * without a full rebuild. Used by the live cover-sync (e.g. a "customcovers:
+ * cover-changed" event) so labels reflect a new cover immediately.
+ *
+ * If `cover` is given (already a ready URL from the sender) it is used directly;
+ * otherwise the playlist's metadata is refetched with a RAW fetch (bypassing
+ * TidalApi.fetch's memoization, which would otherwise serve the stale cover).
+ */
+export async function setPlaylistCover(uuid: string, cover?: string): Promise<void> {
+	let url = cover;
+	if (!url) {
+		try {
+			const { token, clientId } = await getCredentials();
+			const res = await fetch(`https://desktop.tidal.com/v1/playlists/${uuid}?${TidalApi.queryArgs()}`, {
+				headers: { Authorization: `Bearer ${token}`, "x-tidal-token": clientId },
+			});
+			if (!res.ok) return;
+			const pl = await res.json();
+			url = coverUrl(pl?.squareImage ?? pl?.image, pl?.lastUpdated);
+		} catch (err) {
+			trace.warn(`Cover refresh failed for ${uuid}.`, err);
+			return;
+		}
+	}
+	if (!url) return;
+
+	for (const list of trackIdToPlaylists.values()) {
+		for (const l of list) if (l.id === uuid) l.cover = url;
+	}
+	const cache = loadCache();
+	if (cache.playlists[uuid]) {
+		cache.playlists[uuid].cover = url;
+		saveCache(cache);
+	}
+	trace.log(`Cover updated for ${uuid}.`);
+}
+
 /** Live update: tracks were added to a playlist (from a Redux action). */
 export function addPlaylistMembership(playlistId: string, trackIds: string[]): void {
 	const cache = loadCache();

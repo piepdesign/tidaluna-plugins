@@ -83,7 +83,8 @@ export function injectLabels(row: Element, labels: PlaylistLabel[], opts: Inject
 		return true;
 	});
 
-	const sig = `${trackId}|${opts.showAll ? 1 : 0}|${opts.currentId}|${filtered.map((l) => l.id).join(",")}`;
+	// Cover is part of the signature so a cover change (same playlists) still redraws.
+	const sig = `${trackId}|${opts.showAll ? 1 : 0}|${opts.currentId}|${filtered.map((l) => `${l.id}@${l.cover}`).join(",")}`;
 
 	let column = row.querySelector<HTMLElement>('[data-test="pl-labels-col"]');
 	if (column?.dataset.sig === sig) return;
