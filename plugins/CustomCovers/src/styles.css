@@ -1,0 +1,334 @@
+/* --- Cover overlay: paints over the default folder icon / a playlist tile --- */
+.cc-cover {
+	position: absolute;
+	inset: 0;
+	background-size: cover;
+	background-position: center;
+	background-repeat: no-repeat;
+	border-radius: inherit;
+	pointer-events: none;
+	z-index: 1;
+}
+
+/* Keep TIDAL's hover controls (the "⋯" menu, play button) above our cover. */
+.fx-hover-controls {
+	position: relative;
+	z-index: 3;
+}
+
+/* Preview inside the native playlist modal: a square anchored to the top of the
+   image column, so it covers only the thumbnail (not the buttons below) and
+   never stretches. */
+.cc-modal-preview {
+	inset: auto;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 1;
+}
+
+/* --- Modal (native <dialog> in the top layer, so it sits above TIDAL's dialog) --- */
+dialog.cc-overlay {
+	position: fixed;
+	inset: 0;
+	width: 100vw;
+	height: 100vh;
+	max-width: 100vw;
+	max-height: 100vh;
+	margin: 0;
+	padding: 0;
+	border: none;
+	background: transparent;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+dialog.cc-overlay::backdrop {
+	background: rgba(0, 0, 0, 0.55);
+}
+
+.cc-modal {
+	box-sizing: border-box;
+	width: 540px;
+	max-width: 92vw;
+	max-height: 90vh;
+	display: flex;
+	flex-direction: column;
+	background: #121212;
+	color: #fff;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 14px;
+	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+	font-size: 14px;
+	overflow: hidden;
+}
+.cc-modal * {
+	box-sizing: border-box;
+}
+
+.cc-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 16px 18px 8px;
+}
+.cc-title {
+	font-size: 18px;
+	font-weight: 600;
+}
+.cc-x {
+	background: none;
+	border: none;
+	color: #aaa;
+	font-size: 16px;
+	cursor: pointer;
+}
+.cc-x:hover {
+	color: #fff;
+}
+
+.cc-tabs {
+	display: flex;
+	gap: 6px;
+	padding: 0 18px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.cc-tab {
+	background: none;
+	border: none;
+	color: #aaa;
+	padding: 10px 4px;
+	margin-right: 14px;
+	cursor: pointer;
+	font-size: 14px;
+	border-bottom: 2px solid transparent;
+}
+.cc-tab-active {
+	color: #fff;
+	border-bottom-color: #32f4ff;
+}
+
+.cc-body {
+	display: flex;
+	gap: 18px;
+	padding: 18px;
+	/* Fixed height so switching Image <-> Emoji tabs doesn't resize / jump. */
+	height: 380px;
+	min-height: 0;
+}
+.cc-preview {
+	width: 120px;
+	height: 120px;
+	flex: 0 0 auto;
+	border-radius: 8px;
+	overflow: hidden;
+	background: repeating-conic-gradient(#2a2a2a 0% 25%, #1e1e1e 0% 50%) 50% / 20px 20px;
+}
+.cc-preview-img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+/* A hidden pane must actually be hidden — [hidden] alone loses to display:flex. */
+.cc-pane {
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	overflow: auto;
+}
+.cc-pane[hidden] {
+	display: none;
+}
+
+.cc-file-btn {
+	display: inline-block;
+	align-self: flex-start;
+	padding: 8px 14px;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 20px;
+	cursor: pointer;
+	text-align: center;
+}
+.cc-file-btn:hover {
+	background: rgba(255, 255, 255, 0.18);
+}
+
+/* Square image cropper (folder image path), styled to feel like TIDAL's native crop. */
+.cc-crop-container {
+	flex: 1 1 auto;
+	min-height: 0;
+}
+.cc-crop {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	height: 100%;
+}
+/* Full-width image area (like the native crop), fills the available height. */
+.cc-crop-view {
+	position: relative;
+	flex: 1 1 auto;
+	width: 100%;
+	min-height: 0;
+	overflow: hidden;
+	border-radius: 8px;
+	background: #000;
+	cursor: grab;
+	touch-action: none;
+}
+.cc-crop-view:active {
+	cursor: grabbing;
+}
+.cc-crop-img {
+	position: absolute;
+	top: 0;
+	left: 0;
+	max-width: none;
+	user-select: none;
+}
+/* Centered square selection: visible border + rule-of-thirds inner lines, and a
+   dim outside via a huge spread box-shadow (clipped by the view's overflow). */
+.cc-crop-square {
+	position: absolute;
+	pointer-events: none;
+	box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+	border: 1px solid rgba(255, 255, 255, 0.9);
+	background-image:
+		linear-gradient(90deg, transparent calc(33.333% - 0.5px), rgba(255, 255, 255, 0.45) calc(33.333% - 0.5px), rgba(255, 255, 255, 0.45) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px), transparent calc(66.666% - 0.5px), rgba(255, 255, 255, 0.45) calc(66.666% - 0.5px), rgba(255, 255, 255, 0.45) calc(66.666% + 0.5px), transparent calc(66.666% + 0.5px)),
+		linear-gradient(0deg, transparent calc(33.333% - 0.5px), rgba(255, 255, 255, 0.45) calc(33.333% - 0.5px), rgba(255, 255, 255, 0.45) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px), transparent calc(66.666% - 0.5px), rgba(255, 255, 255, 0.45) calc(66.666% - 0.5px), rgba(255, 255, 255, 0.45) calc(66.666% + 0.5px), transparent calc(66.666% + 0.5px));
+}
+.cc-crop-zoom {
+	width: 100%;
+	accent-color: #32f4ff;
+}
+/* Centered under the crop view. */
+.cc-crop-tools {
+	display: flex;
+	gap: 8px;
+	justify-content: center;
+	width: 100%;
+}
+.cc-crop-tool {
+	flex: 0 0 auto;
+	width: 72px;
+	height: 34px;
+	background: rgba(255, 255, 255, 0.1);
+	border: none;
+	border-radius: 8px;
+	color: #fff;
+	font-size: 16px;
+	cursor: pointer;
+}
+.cc-crop-tool:hover {
+	background: rgba(255, 255, 255, 0.18);
+}
+
+.cc-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+.cc-color {
+	width: 40px;
+	height: 32px;
+	flex: 0 0 auto;
+	padding: 0;
+	border: none;
+	background: none;
+	cursor: pointer;
+}
+.cc-hex {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.cc-pipette,
+.cc-random {
+	flex: 0 0 auto;
+	background: rgba(255, 255, 255, 0.1);
+	border: none;
+	border-radius: 6px;
+	color: #fff;
+	width: 34px;
+	height: 32px;
+	cursor: pointer;
+}
+.cc-pipette:hover,
+.cc-random:hover {
+	background: rgba(255, 255, 255, 0.18);
+}
+.cc-rgb label {
+	flex: 1 1 0;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	color: #aaa;
+	font-size: 12px;
+	min-width: 0;
+}
+.cc-rgb input {
+	width: 100%;
+	min-width: 0;
+}
+.cc-modal input[type="text"],
+.cc-modal input[type="number"] {
+	background: #1e1e1e;
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	border-radius: 6px;
+	color: #fff;
+	padding: 6px 8px;
+	font-size: 14px;
+}
+
+/* Full grouped, searchable emoji picker (emoji-picker-element). */
+.cc-emoji-picker {
+	width: 100%;
+	flex: 1 1 auto;
+	min-height: 0;
+	height: auto;
+	--background: #1e1e1e;
+	--border-color: rgba(255, 255, 255, 0.12);
+	--indicator-color: #32f4ff;
+	--input-border-color: rgba(255, 255, 255, 0.2);
+	--input-font-color: #fff;
+	--input-placeholder-color: #888;
+	--button-hover-background: rgba(255, 255, 255, 0.1);
+	--button-active-background: rgba(50, 244, 255, 0.18);
+	border-radius: 8px;
+}
+
+.cc-foot {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+	padding: 12px 18px 18px;
+}
+.cc-foot button {
+	padding: 9px 18px;
+	border-radius: 20px;
+	border: none;
+	cursor: pointer;
+	font-size: 14px;
+}
+.cc-cancel {
+	background: rgba(255, 255, 255, 0.1);
+	color: #fff;
+}
+.cc-save {
+	background: #fff;
+	color: #000;
+	font-weight: 600;
+}
+.cc-save:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+/* "Custom cover" reuses the native "Bild ändern" button in place (relabelled +
+   click intercepted), so it inherits TIDAL's styling — no styles of our own. */
