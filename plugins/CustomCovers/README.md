@@ -26,7 +26,7 @@ The repo publishes via a GitHub Actions release tagged `latest` on every push to
 
 ## Notes
 
-Built against the TidaLuna beta and TIDAL's official Open API v2 (cover upload) plus internal v1 endpoints (metadata). Selectors into TIDAL's UI are anchored to stable `data-test` attributes where possible. Full development history, the captured upload flow, and dead ends: `(C) Changelog.md` in this folder — read it first before making further changes.
+Built against the TidaLuna beta and TIDAL's official Open API v2 (cover upload) plus internal v1 endpoints (metadata). Selectors into TIDAL's UI are anchored to stable `data-test` attributes where possible.
 
 ## Development
 

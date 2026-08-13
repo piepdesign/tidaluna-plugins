@@ -30,7 +30,7 @@ The repo publishes via a GitHub Actions release tagged `latest` on every push to
 
 ## Notes
 
-Built against the TidaLuna beta, verified against `@luna/lib` and the private TIDAL v1/v2 API (see the `tidalapi` Python library for endpoint references). Full development history, bug root-causes, and dead ends: `(C) Changelog.md` in this folder — read it first before making further changes.
+Built against the TidaLuna beta, verified against `@luna/lib` and the private TIDAL v1/v2 API (see the `tidalapi` Python library for endpoint references).
 
 ## Development
 
