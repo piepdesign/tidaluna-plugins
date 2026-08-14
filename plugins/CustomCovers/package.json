@@ -5,7 +5,7 @@
 	"author": {
 		"name": "piep.design",
 		"email": "info@piep.design",
-		"url": "https://piep.design",
+		"url": "https://github.com/piepdesign",
 		"avatarUrl": "https://avatars.githubusercontent.com/u/157887796?v=4"
 	},
 	"main": "./src/index.ts",
