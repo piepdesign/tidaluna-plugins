@@ -1,6 +1,6 @@
 {
 	"name": "@piepdesign/custom-covers",
-	"version": "0.13.0",
+	"version": "0.13.6",
 	"description": "Set custom covers for playlists and folders: upload an image, or build one from a background color plus a centered emoji. Folders finally get real covers instead of the default folder icon.",
 	"author": {
 		"name": "piep.design",

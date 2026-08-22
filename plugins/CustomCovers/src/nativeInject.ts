@@ -145,6 +145,47 @@ const injectEmojiButton = (form: Element): void => {
 	);
 };
 
+const CONTEXT_MENU = 'div[class*="_contextMenu_"]';
+
+/**
+ * Close TIDAL's open context menu. It closes on Escape, but the handler lives in
+ * the menu's React subtree — a `document`-level Escape is ignored because
+ * `document` is outside React's delegated event root. So we dispatch Escape onto
+ * the menu element itself (or the focused element inside it), plus a synthetic
+ * outside pointerdown/mousedown as a fallback for menus that dismiss on
+ * outside-press instead.
+ */
+const closeContextMenu = (): void => {
+	const menu = document.querySelector(CONTEXT_MENU);
+	const escTarget: EventTarget = menu?.contains(document.activeElement) ? (document.activeElement as Element) : (menu ?? document.body);
+	for (const type of ["keydown", "keyup"]) {
+		escTarget.dispatchEvent(new KeyboardEvent(type, { key: "Escape", code: "Escape", keyCode: 27, which: 27, bubbles: true, cancelable: true }));
+	}
+	// Fallback: some menus dismiss on an outside press rather than Escape.
+	for (const type of ["pointerdown", "mousedown"]) {
+		document.body.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true }));
+	}
+};
+
+/**
+ * Resolve once TIDAL's context menu has left the DOM (so its outside-click
+ * dismiss listener is gone), or after a short fallback timeout so we never hang
+ * if the menu selector ever changes. Polled via rAF.
+ */
+const waitForContextMenuGone = (): Promise<void> =>
+	new Promise((resolve) => {
+		const start = performance.now();
+		const tick = (): void => {
+			const stillOpen = document.querySelector(CONTEXT_MENU);
+			if (!stillOpen || !stillOpen.isConnected || performance.now() - start > 600) {
+				resolve();
+				return;
+			}
+			requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
+
 // --- folder "⋯" menu: inject Set/Remove cover items ---
 const injectFolderMenuItem = (renameBtn: Element): void => {
 	const li = renameBtn.closest("li");
@@ -163,9 +204,18 @@ const injectFolderMenuItem = (renameBtn: Element): void => {
 		const innerBtn = item.querySelector("button");
 		innerBtn?.removeAttribute("data-test"); // avoid re-matching our observer
 		if (danger) item.style.color = "#ff6b6b";
-		// No stopPropagation: let the click bubble so TIDAL's menu closes normally
-		// (otherwise the result only shows after a second click / navigation).
-		item.addEventListener("click", () => onClick());
+		// TIDAL does NOT close its context menu when our injected (non-React) item
+		// is clicked, and while the menu stays open its own outside-click dismiss
+		// eats the first click inside our modal (confirmed live: menu still open
+		// behind the modal, first click dead — it just dismisses the menu — second
+		// click works). So we close the menu ourselves, then wait for it to leave
+		// the DOM before opening. Key detail: a document-level Escape is ignored,
+		// because `document` sits OUTSIDE React's delegated event root — the Escape
+		// has to be dispatched INTO the menu's own subtree to reach TIDAL's handler.
+		item.addEventListener("click", () => {
+			closeContextMenu();
+			void waitForContextMenuGone().then(onClick);
+		});
 		return item;
 	};
 

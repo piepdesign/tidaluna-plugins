@@ -92,9 +92,21 @@ export function openCoverModal(opts: Options): Promise<CoverResult | null> {
 		const finish = (value: CoverResult | null): void => {
 			if (done) return;
 			done = true;
+			document.removeEventListener("focusin", reclaimFocus, true);
 			if (dlg.open) dlg.close();
 			dlg.remove();
 			resolve(value);
+		};
+
+		// Keep focus inside the dialog for its whole lifetime. Whatever opened us
+		// (the folder "⋯" menu, or the still-open native playlist-edit modal) can
+		// hand focus back to its own trigger asynchronously after we've shown; a
+		// one-off refocus would lose that race, so we watch document-wide and
+		// reclaim focus whenever it lands outside the dialog while it's open.
+		const reclaimFocus = (): void => {
+			if (!dlg.open) return;
+			if (dlg.contains(document.activeElement)) return;
+			dlg.focus();
 		};
 
 		// A native <dialog> in the top layer, so it stacks ABOVE TIDAL's own
@@ -315,5 +327,7 @@ export function openCoverModal(opts: Options): Promise<CoverResult | null> {
 		refresh();
 		document.body.appendChild(dlg);
 		dlg.showModal();
+		document.addEventListener("focusin", reclaimFocus, true);
+		reclaimFocus();
 	});
 }

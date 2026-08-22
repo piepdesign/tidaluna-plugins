@@ -49,20 +49,34 @@ const searchValue = (container: Element): string => {
 	return (input?.value ?? "").trim();
 };
 
-/** Build (or reuse) a folder header row. */
-const makeHeader = (folderId: string, name: string, count: number, container: Element): HTMLElement => {
+/** Build a folder header row. No click listener here — clicks are handled via
+ * delegation on the container (see `initDialog`), so headers keep working even
+ * when the collapse/expand pass below rebuilds them. */
+const makeHeader = (folderId: string, name: string, count: number): HTMLElement => {
 	const h = document.createElement("div");
 	h.className = "batp-folder-header";
 	h.dataset.batpHeader = folderId;
 	h.innerHTML = `<span class="batp-caret"></span><span class="batp-name"></span><span class="batp-count"></span>`;
 	(h.querySelector(".batp-name") as HTMLElement).textContent = name;
 	(h.querySelector(".batp-count") as HTMLElement).textContent = String(count);
-	h.addEventListener("click", () => {
-		if (expanded.has(folderId)) expanded.delete(folderId);
-		else expanded.add(folderId);
-		apply(container);
-	});
 	return h;
+};
+
+/** Show/hide rows per header to match `expanded`, in place — no DOM
+ * add/remove, so toggling a folder never trips the MutationObserver that
+ * re-groups on childList changes (which previously masked/undid the toggle). */
+const syncCollapse = (container: Element, searching: boolean): void => {
+	container.querySelectorAll<HTMLElement>(":scope > .batp-folder-header").forEach((header) => {
+		const folderId = header.dataset.batpHeader;
+		if (!folderId) return;
+		const isCollapsed = !expanded.has(folderId) && !searching;
+		header.classList.toggle("batp-collapsed", isCollapsed);
+		let sib = header.nextElementSibling as HTMLElement | null;
+		while (sib && !sib.classList.contains("batp-folder-header")) {
+			sib.style.display = isCollapsed ? "none" : "";
+			sib = sib.nextElementSibling as HTMLElement | null;
+		}
+	});
 };
 
 /** Compute the desired sequence and (re)apply it if the DOM differs. */
@@ -93,35 +107,28 @@ const apply = (container: Element): void => {
 		if (rows?.length) seq.push({ header: { id: f.id, name: f.name, count: rows.length }, rows });
 	}
 
-	// Signature to stay idempotent (prevents observer feedback loops).
+	// Structural signature — order/composition only, deliberately WITHOUT
+	// `expanded`/`searching` — so toggling a folder doesn't trigger a rebuild,
+	// only the cheap syncCollapse() below.
 	const sig = JSON.stringify({
-		searching,
-		expanded: [...expanded],
 		order: seq.map((s) => (s.header ? `F:${s.header.id}:${s.header.count}` : "ROOT") + "|" + s.rows.map((r) => r.getAttribute(UUID_ATTR)).join(",")),
 	});
 	const el = container as HTMLElement;
 	const headerCount = seq.filter((s) => s.header).length;
-	if (el.dataset.batpSig === sig && container.querySelectorAll(":scope > .batp-folder-header").length === headerCount) return;
-
-	// Rebuild.
-	container.querySelectorAll(":scope > .batp-folder-header").forEach((h) => h.remove());
-	const frag = document.createDocumentFragment();
-	for (const s of seq) {
-		let hidden = false;
-		if (s.header) {
-			const isCollapsed = !expanded.has(s.header.id) && !searching;
-			const header = makeHeader(s.header.id, s.header.name, s.header.count, container);
-			if (isCollapsed) header.classList.add("batp-collapsed");
-			frag.appendChild(header);
-			hidden = isCollapsed;
+	if (el.dataset.batpSig !== sig || container.querySelectorAll(":scope > .batp-folder-header").length !== headerCount) {
+		// Rebuild order/headers (composition actually changed).
+		container.querySelectorAll(":scope > .batp-folder-header").forEach((h) => h.remove());
+		const frag = document.createDocumentFragment();
+		for (const s of seq) {
+			if (s.header) frag.appendChild(makeHeader(s.header.id, s.header.name, s.header.count));
+			for (const r of s.rows) frag.appendChild(r);
 		}
-		for (const r of s.rows) {
-			r.style.display = hidden ? "none" : "";
-			frag.appendChild(r);
-		}
+		container.appendChild(frag);
+		el.dataset.batpSig = sig;
 	}
-	container.appendChild(frag);
-	el.dataset.batpSig = sig;
+
+	// Always sync collapse state (cheap: class + display toggles, no DOM churn).
+	syncCollapse(container, searching);
 };
 
 // --- "+" quick popover -------------------------------------------------------
@@ -224,6 +231,19 @@ export const initDialog = (): void => {
 		unloads.add(() => mo.disconnect());
 		const input = container.parentElement?.querySelector("input");
 		input?.addEventListener("input", () => apply(container));
+		// Delegated click handler for folder headers: attached once on the
+		// container instead of per-header, so it keeps working across rebuilds
+		// (apply() removes/recreates header elements) instead of only firing on
+		// whichever header instance happened to be in the DOM when it was bound.
+		container.addEventListener("click", (e) => {
+			const header = (e.target as HTMLElement).closest<HTMLElement>(".batp-folder-header");
+			if (!header || !container.contains(header)) return;
+			const folderId = header.dataset.batpHeader;
+			if (!folderId) return;
+			if (expanded.has(folderId)) expanded.delete(folderId);
+			else expanded.add(folderId);
+			apply(container);
+		});
 	});
 
 	// "+" quick popover (a context menu). Harmless for other context menus:

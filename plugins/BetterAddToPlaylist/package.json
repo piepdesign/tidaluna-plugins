@@ -1,6 +1,6 @@
 {
 	"name": "@piepdesign/better-add-to-playlist",
-	"version": "0.5.0",
+	"version": "0.5.1",
 	"description": "Restructures TIDAL's \"Add to playlist\" dialog to mirror your own folder and playlist hierarchy, like Spotify, instead of one flat list.",
 	"author": {
 		"name": "piep.design",
