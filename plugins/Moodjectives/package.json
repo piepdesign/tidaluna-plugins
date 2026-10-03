@@ -1,6 +1,6 @@
 {
 	"name": "@piepdesign/moodjectives",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Renames your auto-generated personal mixes (My Mix 1, 2 …) with Spotify-daylist-style mood names, built from the artists actually in each mix: two adjectives and a noun, all lower case.",
 	"author": {
 		"name": "piep.design",

@@ -12,6 +12,8 @@ export { Settings, unloads };
 // Matches the auto-generated personal mix titles ("My Mix 1"…, localized "Mein
 // Mix N"). "My Daily Discovery" deliberately does NOT match, so it stays as-is.
 const MIX_TITLE_RE = /^(?:My Mix|Mein Mix)\s+(\d+)$/i;
+// Cheap pre-filter for the text-node walk (see titleElements).
+const MIX_HINT_RE = /\b(?:my|mein)\s*mix\b/i;
 
 // Normalised text of an element ("My Mix\n5" -> "My Mix 5").
 const normText = (el: Element): string => (el.textContent ?? "").replace(/\s+/g, " ").trim();
@@ -96,13 +98,67 @@ async function ensureName(mixId: string): Promise<void> {
 // The mix id from the current URL, if we're on a mix detail page.
 const urlMixId = (): string => window.location.pathname.match(/\/mix\/([^/?#]+)/)?.[1] ?? "";
 
-// The mix id from a nearby mix link (e.g. the now-playing bar's source link).
-const hrefMixId = (el: Element): string =>
-	el.closest('a[href*="/mix/"]')?.getAttribute("href")?.match(/\/mix\/([^/?#]+)/)?.[1] ?? "";
+const idFromHref = (href: string | null | undefined): string => href?.match(/\/mix\/([^/?#]+)/)?.[1] ?? "";
 
 /**
- * Resolves an element's mix id from our stored attribute, else the tile's
- * mixNumber via the fiber map, a nearby mix link, or the URL. Re-resolves when the
+ * The mix id from a mix link belonging to this title: the link the title sits in
+ * (now-playing bar, linked tiles), else the only /mix/ link in a close ancestor
+ * (tile markup where title and link are siblings). Ambiguous subtrees (more than
+ * one mix link, i.e. a whole shelf) are rejected rather than guessed.
+ */
+const hrefMixId = (el: Element): string => {
+	const own = idFromHref(el.closest('a[href*="/mix/"]')?.getAttribute("href"));
+	if (own) return own;
+	let node: Element | null = el.parentElement;
+	for (let i = 0; node && i < 4; i++, node = node.parentElement) {
+		const links = node.querySelectorAll<HTMLAnchorElement>('a[href*="/mix/"]');
+		if (links.length === 1) return idFromHref(links[0].getAttribute("href"));
+		if (links.length > 1) break;
+	}
+	return "";
+};
+
+// mixNumber -> id pairs learned from mix detail pages, persisted across restarts.
+// Safety net: once a mix has been opened, its tile can be named even if TIDAL
+// changes the tile markup/props again and the fiber lookup comes up empty.
+const LEARNED_KEY = "moodjectives:mix-numbers";
+const loadLearned = (): Map<number, string> => {
+	try {
+		const raw = localStorage.getItem(LEARNED_KEY);
+		if (!raw) return new Map();
+		return new Map(Object.entries(JSON.parse(raw) as Record<string, string>).map(([k, v]) => [Number(k), v]));
+	} catch {
+		return new Map();
+	}
+};
+const learned = loadLearned();
+const learn = (num: number, mixId: string): void => {
+	if (learned.get(num) === mixId) return;
+	learned.set(num, mixId);
+	try {
+		localStorage.setItem(LEARNED_KEY, JSON.stringify(Object.fromEntries(learned)));
+	} catch {
+		/* storage full / unavailable: the in-memory map still works this session */
+	}
+};
+
+// Elements that are the page header of a mix detail page (where the URL id is
+// authoritative, so we may learn from them). Filled while collecting titles.
+const headerTitles = new WeakSet<HTMLElement>();
+const HEADER_SEL = 'h1, h2, header, [data-test*="title" i]';
+
+// Fiber scans per redraw pass — the first successful one fills the whole map.
+let fiberScans = 0;
+const refreshNumberMap = (el: HTMLElement, num: number): void => {
+	if (numberMap?.has(num) || fiberScans >= 4) return;
+	fiberScans++;
+	const fresh = readMixMapFromFiber(el);
+	if (fresh) numberMap = numberMap ? new Map([...numberMap, ...fresh]) : fresh;
+};
+
+/**
+ * Resolves an element's mix id: fiber map (tiles) -> nearby mix link -> URL (only
+ * for a detail-page header) -> previously learned number. Re-resolves whenever the
  * element shows a raw "My Mix N" again (the reused now-playing bar switching mix).
  * Stores the original title so we can restore it on unload. Returns "" if unknown.
  */
@@ -111,8 +167,12 @@ const resolveMixId = (el: HTMLElement): string => {
 	let mixId = el.getAttribute("data-mjx-mix") ?? "";
 
 	if (rawNum) {
-		if (!numberMap) numberMap = readMixMapFromFiber(el);
-		const freshId = (numberMap?.get(Number(rawNum)) ?? "") || hrefMixId(el) || urlMixId();
+		const num = Number(rawNum);
+		refreshNumberMap(el, num);
+		let freshId = numberMap?.get(num) || hrefMixId(el) || "";
+		if (!freshId && headerTitles.has(el)) freshId = urlMixId();
+		if (freshId && headerTitles.has(el)) learn(num, freshId);
+		if (!freshId) freshId = learned.get(num) ?? "";
 		if (freshId && freshId !== mixId) {
 			mixId = freshId;
 			el.setAttribute("data-mjx-mix", mixId);
@@ -128,19 +188,36 @@ const resolveMixId = (el: HTMLElement): string => {
 	return mixId;
 };
 
-// Leaf title elements that either read "My Mix N" (fresh) or we already tagged.
-// Cheap by default (tile/sidebar title spans); the broader header scan only runs
-// on a mix detail page, where the title isn't a titleText span.
+/**
+ * All elements currently showing a mix title: the ones we already tagged, plus
+ * every element whose composed text reads exactly "My Mix N".
+ *
+ * Found via a text-node walk instead of class selectors. Up to v1.0.0 this hung on
+ * `span[class*="titleText"]`, which TIDAL 2.43 renamed — home tiles silently
+ * stopped being renamed while the detail page (generic h1/h2 scan) kept working.
+ * Text matching is what we actually mean and survives markup/class churn; the walk
+ * is debounced to one pass per 250 ms.
+ */
 const titleElements = (): HTMLElement[] => {
 	const out = new Set<HTMLElement>();
 	document.querySelectorAll<HTMLElement>("[data-mjx-mix]").forEach((el) => out.add(el));
-	const consider = (el: HTMLElement): void => {
-		if (el.children.length === 0 && MIX_TITLE_RE.test(normText(el))) out.add(el);
-	};
-	document.querySelectorAll<HTMLElement>('span[class*="titleText" i]').forEach(consider);
-	// Now-playing bar: the source label ("My Mix 8") for the currently playing mix.
-	document.querySelectorAll<HTMLElement>('[data-test="footer-player"] a, [data-test="footer-player"] span').forEach(consider);
-	if (urlMixId()) document.querySelectorAll<HTMLElement>('h1, h2, [data-test*="title" i]').forEach(consider);
+
+	const onDetailPage = urlMixId() !== "";
+	const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+	for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+		const raw = node.nodeValue;
+		// Cheap pre-filter: skip the overwhelming majority of text nodes outright.
+		if (raw === null || raw.length > 40 || !MIX_HINT_RE.test(raw)) continue;
+		// The number can live in a sibling element ("My Mix" + badge), so climb to
+		// the nearest ancestor whose composed text is the full title.
+		let el: HTMLElement | null = node.parentElement;
+		for (let depth = 0; el !== null && depth < 3; depth++, el = el.parentElement) {
+			if (!MIX_TITLE_RE.test(normText(el))) continue;
+			out.add(el);
+			if (onDetailPage && (el.matches(HEADER_SEL) || el.closest(HEADER_SEL) !== null)) headerTitles.add(el);
+			break;
+		}
+	}
 	return [...out];
 };
 
@@ -148,6 +225,7 @@ const titleElements = (): HTMLElement[] => {
 // batched write pass (text changes), so we don't interleave layout reads and
 // writes and thrash layout.
 const redraw = (): void => {
+	fiberScans = 0;
 	const writes: Array<[HTMLElement, string]> = [];
 	for (const el of titleElements()) {
 		const mixId = resolveMixId(el);
@@ -175,8 +253,10 @@ const requestRedraw = (): void => {
 
 // --- Wiring ------------------------------------------------------------------
 
-// Catch lazily-rendered tiles as their title spans appear.
-observe(unloads, 'span[class*="titleText" i]', () => requestRedraw());
+// Catch lazily-rendered mix tiles/links as they appear. Class names change
+// between TIDAL versions, hrefs don't — and the MutationObserver below is the
+// catch-all anyway.
+observe(unloads, 'a[href*="/mix/"]', () => requestRedraw());
 
 redux.intercept("router/NAVIGATED", unloads, () => window.setTimeout(redraw, 150));
 
