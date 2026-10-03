@@ -6,7 +6,7 @@ The names appear everywhere the mix shows up: the home tiles, the sidebar, the m
 
 ## Setup
 
-Add a free **[[Wiki/Organisationen/Last.fm|Last.fm]] API key** under Settings → Plugins → Moodjectives:
+Add a free **Last.fm API key** under Settings → Plugins → Moodjectives:
 
 1. Get a key at [last.fm/api/account/create](https://www.last.fm/api/account/create).
 2. Paste the **API key** into the plugin's settings.
